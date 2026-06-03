@@ -46,6 +46,23 @@ const VOICE_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    type: "function",
+    name: "control_playback",
+    description:
+      "Pause, resume, or toggle music playback. Use when the user says pause, stop, hold on, quiet the music, keep playing, resume, or unpause. Prefer this over telling them to click buttons.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["pause", "play", "resume", "toggle"],
+          description: "pause or stop to halt audio; play or resume to continue; toggle to switch.",
+        },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 const workletUrl = URL.createObjectURL(
@@ -69,7 +86,13 @@ const workletUrl = URL.createObjectURL(
   ),
 );
 
-export function createVoiceAgent({ onStatus, onTranscript, onToolResult, keyterms = [] }) {
+export function createVoiceAgent({
+  onStatus,
+  onTranscript,
+  onToolResult,
+  onPlaybackControl,
+  keyterms = [],
+}) {
   let ws, ctx, mic, ready = false, waitingForAnswer = false;
   let nextStartTime = 0;
   const liveSources = new Set();
@@ -107,6 +130,16 @@ export function createVoiceAgent({ onStatus, onTranscript, onToolResult, keyterm
   }
 
   async function runTool(call) {
+    if (call.name === "control_playback") {
+      const data =
+        (await onPlaybackControl?.(call.arguments?.action ?? "pause")) ?? {
+          ok: false,
+          message: "Playback control unavailable",
+        };
+      onToolResult?.(call.name, data);
+      return data;
+    }
+
     const res = await fetch("/api/tool", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -190,6 +223,7 @@ export function createVoiceAgent({ onStatus, onTranscript, onToolResult, keyterm
 The screen starts on the SunoRecSys Discover Weekly demo art. When someone asks what is trending, hot this week, or wants the viral Suno playlist, call get_weekly_trending so the visuals switch to live Suno covers.
 When they want a vibe or genre, call recommend_songs with genre and mood.
 When they name a song to hear, call select_track with their words.
+When they say pause, stop, hold on, or resume, call control_playback with the right action.
 Keep every spoken reply to one or two short sentences. No markdown, bullets, or exclamation marks.
 After tool results, name one or two specific tracks and why they fit. Round big play counts.
 Never invent songs not in tool results.`;

@@ -29,6 +29,7 @@ Free tier services spin down after inactivity; the first load may take ~30s to w
   - `get_weekly_trending` — top plays from the official playlist
   - `recommend_songs` — filter by genre/mood (tag matching + popularity)
   - `select_track` — play/highlight a song by name
+  - `control_playback` — pause, resume, or toggle (say "pause" or "keep playing")
 - **Play** — stream preview from Suno CDN when allowed; otherwise open on Suno.
 
 ## API

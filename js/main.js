@@ -71,6 +71,55 @@ function showTrack(track, index, tryPlay = false) {
   if (url) window.open(url, "_blank");
 }
 
+function isPlaying() {
+  return Boolean(audioEl.src) && !audioEl.paused;
+}
+
+async function controlPlayback(action) {
+  const act = (action || "pause").toLowerCase();
+  const track = displayPlaylist[currentIndex];
+  const title = track?.title ?? null;
+
+  if (act === "pause" || act === "stop") {
+    if (!audioEl.src || audioEl.paused) {
+      visualizer.setVinylSpinning(false);
+      $("btn-play").textContent = "PLAY";
+      return { ok: true, state: "paused", track: title, message: "Already paused" };
+    }
+    audioEl.pause();
+    visualizer.setVinylSpinning(false);
+    $("btn-play").textContent = "PLAY";
+    return { ok: true, state: "paused", track: title };
+  }
+
+  if (act === "play" || act === "resume") {
+    if (currentIndex < 0 || !track) {
+      return { ok: false, message: "No track selected. Ask me to play a song first." };
+    }
+    if (!audioEl.src) {
+      showTrack(track, currentIndex, true);
+      return { ok: true, state: isPlaying() ? "playing" : "paused", track: title };
+    }
+    try {
+      await audioEl.play();
+      visualizer.highlightIndex(currentIndex);
+      visualizer.setVinylSpinning(true);
+      $("btn-play").textContent = "PAUSE";
+      return { ok: true, state: "playing", track: title };
+    } catch {
+      visualizer.setVinylSpinning(false);
+      $("btn-play").textContent = "PLAY";
+      return { ok: false, state: "paused", track: title, message: "Could not resume playback" };
+    }
+  }
+
+  if (act === "toggle") {
+    return controlPlayback(isPlaying() ? "pause" : "play");
+  }
+
+  return { ok: false, message: `Unknown action: ${action}` };
+}
+
 function formatPlays(n) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${Math.round(n / 1e3)}K`;
@@ -202,7 +251,17 @@ const keytermsForVoice = () => {
   return [...curated, ...trending].slice(0, 50);
 };
 
+audioEl.addEventListener("pause", () => {
+  visualizer.setVinylSpinning(false);
+  $("btn-play").textContent = "PLAY";
+});
+audioEl.addEventListener("play", () => {
+  visualizer.setVinylSpinning(true);
+  $("btn-play").textContent = "PAUSE";
+});
+
 const voice = createVoiceAgent({
+  onPlaybackControl: controlPlayback,
   onStatus: (msg, cls) => {
     const dot = $("voice-status");
     dot.textContent = msg;
