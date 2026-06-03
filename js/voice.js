@@ -129,14 +129,38 @@ export function createVoiceAgent({
     nextStartTime = startAt + buf.duration;
   }
 
+  function parseToolCall(m) {
+    const args =
+      typeof m.arguments === "string"
+        ? (() => {
+            try {
+              return JSON.parse(m.arguments);
+            } catch {
+              return {};
+            }
+          })()
+        : m.arguments ?? {};
+    return {
+      name: m.name ?? m.function?.name ?? m.function_name ?? "",
+      arguments: args,
+      call_id: m.call_id,
+    };
+  }
+
   async function runTool(call) {
-    if (call.name === "control_playback") {
+    const toolName = call.name;
+    const args = call.arguments ?? {};
+
+    if (toolName === "control_playback") {
+      flushPlayback();
+      const action = args.action ?? args.command ?? "pause";
       const data =
-        (await onPlaybackControl?.(call.arguments?.action ?? "pause")) ?? {
+        (await onPlaybackControl?.(action)) ?? {
           ok: false,
           message: "Playback control unavailable",
         };
-      onToolResult?.(call.name, data);
+      data.action = action;
+      onToolResult?.(toolName, data);
       return data;
     }
 
@@ -223,7 +247,7 @@ export function createVoiceAgent({
 The screen starts on the SunoRecSys Discover Weekly demo art. When someone asks what is trending, hot this week, or wants the viral Suno playlist, call get_weekly_trending so the visuals switch to live Suno covers.
 When they want a vibe or genre, call recommend_songs with genre and mood.
 When they name a song to hear, call select_track with their words.
-When they say pause, stop, hold on, or resume, call control_playback with the right action.
+When they say pause, stop, hold on, or resume, you must call control_playback before saying music stopped or paused. Never claim playback changed without calling the tool.
 Keep every spoken reply to one or two short sentences. No markdown, bullets, or exclamation marks.
 After tool results, name one or two specific tracks and why they fit. Round big play counts.
 Never invent songs not in tool results.`;
@@ -281,10 +305,8 @@ Never invent songs not in tool results.`;
           break;
         case "tool.call": {
           try {
-            const result = await runTool({
-              name: m.name,
-              arguments: m.arguments,
-            });
+            const parsed = parseToolCall(m);
+            const result = await runTool(parsed);
             ws.send(
               JSON.stringify({
                 type: "tool.result",
@@ -360,5 +382,5 @@ Never invent songs not in tool results.`;
     return ws?.readyState === WebSocket.OPEN && ready;
   }
 
-  return { start, stop, isConnected };
+  return { start, stop, isConnected, flushAgentAudio: flushPlayback };
 }

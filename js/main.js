@@ -75,21 +75,48 @@ function isPlaying() {
   return Boolean(audioEl.src) && !audioEl.paused;
 }
 
+/** Stop all in-page music immediately (also stops vinyl animation). */
+function pauseMusic() {
+  const wasPlaying = isPlaying();
+  document.querySelectorAll("audio").forEach((el) => {
+    try {
+      el.pause();
+    } catch {}
+  });
+  visualizer.setVinylSpinning(false);
+  $("btn-play").textContent = "PLAY";
+  const title = displayPlaylist[currentIndex]?.title ?? null;
+  return {
+    ok: true,
+    state: "paused",
+    track: title,
+    was_playing: wasPlaying,
+    actually_playing: isPlaying(),
+    in_app_player: Boolean(audioEl.src),
+  };
+}
+
+function userWantsPause(text) {
+  const t = (text || "").toLowerCase();
+  return (
+    /\b(pause|stop playing|stop the music|turn off the music|quiet the music|mute|hold on)\b/.test(t) ||
+    /\b(stop)\b/.test(t)
+  );
+}
+
 async function controlPlayback(action) {
-  const act = (action || "pause").toLowerCase();
+  const act = String(action || "pause").toLowerCase().trim();
   const track = displayPlaylist[currentIndex];
   const title = track?.title ?? null;
 
   if (act === "pause" || act === "stop") {
-    if (!audioEl.src || audioEl.paused) {
-      visualizer.setVinylSpinning(false);
-      $("btn-play").textContent = "PLAY";
-      return { ok: true, state: "paused", track: title, message: "Already paused" };
+    voice.flushAgentAudio?.();
+    const result = pauseMusic();
+    if (!result.in_app_player && !result.was_playing) {
+      result.message =
+        "No track is playing in the app player. If music is open in another Suno tab, close it there.";
     }
-    audioEl.pause();
-    visualizer.setVinylSpinning(false);
-    $("btn-play").textContent = "PLAY";
-    return { ok: true, state: "paused", track: title };
+    return result;
   }
 
   if (act === "play" || act === "resume") {
@@ -208,6 +235,11 @@ function applyRecommendationPicks(picks) {
 }
 
 async function handleToolResult(name, data) {
+  if (name === "control_playback") {
+    if (data?.state === "paused" || data?.action === "pause") pauseMusic();
+    return;
+  }
+
   if (name === "get_weekly_trending") {
     try {
       await ensureTrendingLoaded();
@@ -275,6 +307,11 @@ const voice = createVoiceAgent({
     panel.appendChild(line);
     panel.scrollTop = panel.scrollHeight;
     while (panel.children.length > 40) panel.removeChild(panel.firstChild);
+
+    if (who === "user" && userWantsPause(text)) {
+      voice.flushAgentAudio?.();
+      pauseMusic();
+    }
   },
   onToolResult: handleToolResult,
 });
@@ -308,9 +345,7 @@ $("btn-play").addEventListener("click", (e) => {
   const track = displayPlaylist[currentIndex];
   if (!track) return;
   if (!audioEl.paused && audioEl.src) {
-    audioEl.pause();
-    visualizer.setVinylSpinning(false);
-    $("btn-play").textContent = "PLAY";
+    pauseMusic();
     return;
   }
   showTrack(track, currentIndex, true);
