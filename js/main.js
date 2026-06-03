@@ -19,6 +19,7 @@ const visualizer = createVisualizer({
 
 function showTrack(track, index, tryPlay = false) {
   currentIndex = index;
+  if (tryPlay) visualizer.highlightIndex(index);
   $("track-title").textContent = track.title;
   $("track-artist").textContent = track.artist;
   const metaParts = [];
@@ -27,7 +28,10 @@ function showTrack(track, index, tryPlay = false) {
   if (viewMode === "curated" && !track.play_count) metaParts.push("SunoRecSys picks");
   $("track-meta").textContent = metaParts.join(" · ");
 
-  if (!tryPlay) return;
+  if (!tryPlay) {
+    visualizer.setVinylSpinning(false);
+    return;
+  }
 
   if (track.audio) {
     audioEl.pause();
