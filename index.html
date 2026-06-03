@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suno Voice DJ</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #050505; font-family: "Helvetica Neue", Arial, sans-serif; color: #fff; }
+    canvas { display: block; position: fixed; inset: 0; z-index: 0; }
+
+    #ui-layer {
+      position: fixed; inset: 0; z-index: 10; pointer-events: none;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 20px; box-sizing: border-box;
+    }
+
+    header { text-align: center; pointer-events: auto; padding-top: 12px; }
+    h1 { font-size: 1.1rem; margin: 0; letter-spacing: 4px; font-weight: 300; text-transform: uppercase; opacity: 0.95; }
+    h2 { font-size: 0.7rem; color: #1DB954; letter-spacing: 2px; margin-top: 6px; text-transform: uppercase; }
+    .sub { font-size: 0.65rem; color: #666; margin-top: 4px; }
+    .sub a { color: #1DB954; text-decoration: none; }
+
+    #player-controls {
+      align-self: center; pointer-events: auto;
+      background: rgba(15,15,15,0.88); backdrop-filter: blur(20px);
+      padding: 18px 40px 22px; border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      min-width: 300px; text-align: center; margin-bottom: 24px;
+    }
+
+    .track-title { font-weight: 500; font-size: 1.05rem; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .track-artist { color: #888; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 2px; }
+    .track-meta { color: #555; font-size: 0.65rem; margin-top: 6px; letter-spacing: 1px; }
+
+    .btn-row { margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    button {
+      background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff;
+      padding: 9px 22px; cursor: pointer; border-radius: 30px;
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;
+      transition: all 0.2s ease; pointer-events: auto;
+    }
+    button:hover { background: #fff; color: #000; border-color: #fff; }
+    #btn-play { background: #1DB954; border-color: #1DB954; color: #000; font-weight: bold; }
+    #btn-voice.on { background: #e03131; border-color: #e03131; color: #fff; }
+
+    #voice-panel {
+      position: fixed; top: 80px; right: 16px; width: 280px; pointer-events: auto;
+      background: rgba(12,12,12,0.9); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 14px; backdrop-filter: blur(12px);
+    }
+    #voice-panel h3 { margin: 0 0 8px; font-size: 0.65rem; letter-spacing: 2px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .voice-status { font-size: 0.75rem; color: #aaa; margin-bottom: 10px; }
+    .voice-status.ok { color: #1DB954; }
+
+    #transcript-panel {
+      max-height: 140px; overflow-y: auto; font-size: 0.72rem; line-height: 1.45;
+      border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 8px;
+    }
+    #transcript-panel .line { margin-bottom: 6px; opacity: 0.9; }
+    #transcript-panel .line.user { color: #8ab4ff; }
+    #transcript-panel .line.agent { color: #b8f0c8; }
+
+    #loading {
+      position: fixed; inset: 0; z-index: 999; background: #000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.6s;
+    }
+    .loader { width: 50px; height: 1px; background: #222; position: relative; overflow: hidden; }
+    .loader::after {
+      content: ""; position: absolute; left: -50%; width: 50%; height: 100%;
+      background: #fff; animation: load 1.2s infinite ease-in-out;
+    }
+    @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
+    .load-msg { margin-top: 14px; font-size: 10px; color: #555; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div class="loader"></div>
+    <div class="load-msg">Rendering SunoRecSys library…</div>
+  </div>
+
+  <div id="ui-layer">
+    <header>
+      <h1 id="playlist-name">Discover Weekly</h1>
+      <h2>Suno Voice DJ</h2>
+      <p class="sub"><span id="playlist-sub">SunoRecSys visualizer · ask the DJ for this week's Suno trending</span> · <a id="playlist-link" href="https://suno.com/playlist/f0a5e841-ef31-408c-ac49-08a1cefe5e5e" target="_blank" rel="noopener">Trending on Suno</a></p>
+    </header>
+
+    <div id="voice-panel">
+      <h3>Voice curator</h3>
+      <div id="voice-status" class="voice-status">Ready — say what's trending to switch orbs</div>
+      <button type="button" id="btn-voice">Talk to DJ</button>
+      <div id="transcript-panel"><div id="transcript-lines"></div></div>
+    </div>
+
+    <div id="player-controls">
+      <div class="track-info">
+        <span class="track-title" id="track-title">Select a track</span>
+        <span class="track-artist" id="track-artist">Orbiting library</span>
+        <div class="track-meta" id="track-meta"></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="btn-play">PLAY</button>
+        <button type="button" id="btn-open-suno">Open on Suno</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio-element" crossorigin="anonymous" preload="auto"></audio>
+
+  <script type="x-shader/x-vertex" id="vertexShader">
+    uniform float uTime;
+    uniform float uHover;
+    attribute float size;
+    attribute vec3 customColor;
+    varying vec3 vColor;
+    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+    vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+    float snoise(vec3 v) {
+      const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+      const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+      vec3 i = floor(v + dot(v, C.yyy));
+      vec3 x0 = v - i + dot(i, C.xxx);
+      vec3 g = step(x0.yzx, x0.xyz);
+      vec3 l = 1.0 - g;
+      vec3 i1 = min(g.xyz, l.zxy);
+      vec3 i2 = max(g.xyz, l.zxy);
+      vec3 x1 = x0 - i1 + C.xxx;
+      vec3 x2 = x0 - i2 + C.yyy;
+      vec3 x3 = x0 - D.yyy;
+      i = mod289(i);
+      vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+      float n_ = 0.142857142857;
+      vec3 ns = n_ * D.wyz - D.xzx;
+      vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+      vec4 x_ = floor(j * ns.z);
+      vec4 y_ = floor(j - 7.0 * x_);
+      vec4 x = x_ * ns.x + ns.yyyy;
+      vec4 y = y_ * ns.x + ns.yyyy;
+      vec4 h = 1.0 - abs(x) - abs(y);
+      vec4 b0 = vec4(x.xy, y.xy);
+      vec4 b1 = vec4(x.zw, y.zw);
+      vec4 s0 = floor(b0)*2.0 + 1.0;
+      vec4 s1 = floor(b1)*2.0 + 1.0;
+      vec4 sh = -step(h, vec4(0.0));
+      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+      vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+      vec3 p0 = vec3(a0.xy, h.x);
+      vec3 p1 = vec3(a0.zw, h.y);
+      vec3 p2 = vec3(a1.xy, h.z);
+      vec3 p3 = vec3(a1.zw, h.w);
+      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+      p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+      m = m * m;
+      return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+    }
+    void main() {
+      vColor = customColor;
+      vec3 pos = position;
+      float noiseVal = snoise(vec3(pos.x * 0.4, pos.y * 0.4, uTime * 0.2));
+      pos.z += noiseVal * 0.3;
+      if (uHover > 0.0) {
+        float hoverNoise = snoise(vec3(pos.x, pos.y, uTime));
+        pos.z += 1.5 * uHover + hoverNoise * 0.5;
+        pos.x += pos.x * 0.05 * uHover;
+        pos.y += pos.y * 0.05 * uHover;
+      }
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+      gl_PointSize = clamp(size * (350.0 / -mvPosition.z), 0.0, 5.0);
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  </script>
+
+  <script type="x-shader/x-fragment" id="fragmentShader">
+    varying vec3 vColor;
+    void main() {
+      float dist = length(gl_PointCoord - vec2(0.5));
+      if (dist > 0.5) discard;
+      float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+      gl_FragColor = vec4(vColor, alpha);
+    }
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
