@@ -1,8 +1,57 @@
 # Suno Voice DJ
 
-Voice-controlled music curator for Suno, powered by AssemblyAI Voice Agent API and Suno's official [Trending: Text to Song](https://suno.com/playlist/f0a5e841-ef31-408c-ac49-08a1cefe5e5e) playlist.
+Talk to a voice DJ and explore Suno music in a 3D **Discover Weekly**-style visualizer.
 
-## Setup
+**Try it now:** [https://suno-voice-dj.onrender.com/](https://suno-voice-dj.onrender.com/)
+
+Built with [AssemblyAI Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api) and Suno’s official [Trending: Text to Song](https://suno.com/playlist/f0a5e841-ef31-408c-ac49-08a1cefe5e5e) playlist.
+
+---
+
+## How to use
+
+1. Open **[suno-voice-dj.onrender.com](https://suno-voice-dj.onrender.com/)** in Chrome or Edge (HTTPS is required for the microphone).
+2. Wait for the cover-art orbs to load around the vinyl.
+3. Click **Talk to DJ** and allow microphone access.
+4. Speak naturally — you do not need exact commands.
+
+**First visit on the free host?** The site may take up to ~30 seconds to wake up if it has been idle. Refresh once if needed.
+
+---
+
+## What you can do
+
+| You say | What happens |
+|--------|----------------|
+| “What’s trending on Suno this week?” | Switches the orbs to **live Suno trending** covers and the DJ names hot tracks. |
+| “Something chill and R&B” (or any mood/genre) | Picks matching songs from this week’s trending list. |
+| “Play the second biggest hit on platform” (or any title/artist) | Moves that album to the **center** and starts preview playback when available. |
+| “Pause” / “Stop” | Stops in-app music and the spinning vinyl. |
+| “Resume” / “Keep playing” | Continues the current track. |
+
+You can also **click an orb** to select a track, or use **Play** / **Open on Suno** at the bottom.
+
+---
+
+## On screen
+
+- **Start view** — Original SunoRecSys demo album art orbiting the record.
+- **Trending view** — After you ask what’s hot, orbs show real covers from Suno’s viral text-to-song playlist.
+- **Now playing** — The selected cover animates to the center and spins with the vinyl while audio plays.
+
+---
+
+## Tips
+
+- Use **headphones or speakers** at a normal volume; the browser uses echo cancellation so the DJ does not hear itself.
+- If preview audio does not play in the browser, use **Open on Suno** for the full track on [suno.com](https://suno.com).
+- The **Play / Pause** button still works if you prefer clicking over voice.
+
+---
+
+## Run locally (optional)
+
+For developers hosting their own copy:
 
 ```bash
 cp .env.example .env   # add ASSEMBLYAI_API_KEY
@@ -12,31 +61,15 @@ npm start
 
 Open **http://localhost:3000/**
 
-## Deploy on Render
+---
 
-1. Push this repo to GitHub (do not commit `.env`).
-2. In [Render](https://dashboard.render.com/) → **New** → **Blueprint**, connect the repo, and apply `render.yaml`.
-   - Or **New Web Service** → Node, build `npm install`, start `npm start`, health check `/api/health`.
-3. Add environment variable **`ASSEMBLYAI_API_KEY`** (your AssemblyAI key) in the service **Environment** tab.
-4. Deploy. Open the `https://your-app.onrender.com` URL (HTTPS is required for the microphone).
+## For developers
 
-Free tier services spin down after inactivity; the first load may take ~30s to wake up.
+See `render.yaml` for deployment. The server mints short-lived voice tokens so your AssemblyAI key never ships to the browser.
 
-## Usage
-
-- **Orbs** — start on original SunoRecSys cover art; switch to live Suno trending covers when you ask the DJ what's trending.
-- **Talk to DJ** — voice agent with tools:
-  - `get_weekly_trending` — top plays from the official playlist
-  - `recommend_songs` — filter by genre/mood (tag matching + popularity)
-  - `select_track` — play/highlight a song by name
-  - `control_playback` — pause, resume, or toggle (say "pause" or "keep playing")
-- **Play** — stream preview from Suno CDN when allowed; otherwise open on Suno.
-
-## API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/weekly-trending` | Full trending playlist (cached 5 min) |
-| `GET /api/recommend?genre=&mood=&count=` | Filtered picks |
-| `POST /api/tool` | Voice tool backend |
-| `GET /api/voice-token` | Short-lived AssemblyAI token |
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/health` | Health check |
+| `GET /api/weekly-trending` | Suno trending playlist (cached) |
+| `GET /api/recommend` | Genre/mood filtered picks |
+| `GET /api/voice-token` | Browser voice session token |
